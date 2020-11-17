@@ -24,6 +24,8 @@ from pandas.io.parsers import TextParser
 import matplotlib.pyplot as plt 
 import matplotlib.gridspec as gridspec
 from datetime import datetime
+from importlib import import_module
+import plotly.graph_objects as go
 
 def _geturl(url):
     headers = {
@@ -120,57 +122,72 @@ def showpic(url):
     im = ax.imshow(im_data, cmap='gray')
     plt.show()
 
-import plotly.graph_objects as go
-def draw_candlestick(df,stock_name):
-    layout = go.Layout(title_text=stock_name,title_font_size=18, autosize=False, margin=go.layout.Margin(l=10, r=1, b=10),
-                       xaxis=dict(title_text="Date", type='category',rangeslider= {'visible': False}),
-                       yaxis=dict(title_text="<b>Price</b>", domain = [0.3, 1]),
-                       yaxis2 = dict(title_text="<b>Volume</b>", anchor="x", domain = [0, 0.2]),
-                       width=500, height=600  )
-      
-    candle = go.Candlestick(x=df['Date'].dt.date,
-                       open=df['Open'], high=df['High'],
-                       low=df['Low'], close=df['Close'], increasing_line_color='#7bc0a3',
-                       decreasing_line_color='#f6416c', name="Price")
-    # Set volume bar color
-    df['diag'] = '#7bc0a3' 
-    df.loc[df['Close'] <= df['Open'] , 'diag'] = '#f6416c' 
-
-    vol = go.Bar(x=df['Date'].dt.date, width=0.5,
-                 y=df['Volume'], name="Volume", marker_color=df['diag'], opacity=0.8, yaxis='y2')  
-    data = [candle, vol]
-    fig = go.Figure(data, layout)
-    fig.update(layout_showlegend=False)
-    fig.show()
-
-# from mplfinance.original_flavor import candlestick2_ohlc
-# def draw_candlestick(df,stock_name):
-#     fig = plt.figure(figsize=(7,6), facecolor="white") 
-#     gs = gridspec.GridSpec(2, 1, left=0.08, bottom=0.15, right=0.99, top=0.96, wspace=0.2, hspace=0, height_ratios=[3.5,1])
-#     graph_KAV = fig.add_subplot(gs[0,:])
-#     graph_VOL = fig.add_subplot(gs[1,:])
-#     # draw candle chart
+class CandleStickChart():
+    def __init__(self):
+        # If mplfinance moudle installed, use mplfinance for Candle Stick Chart.
+        # If not, use plotly to draw the chart.
+        try:
+            module = import_module('mplfinance.original_flavor')
+            self.candlestick_api = getattr(module, 'candlestick2_ohlc')
+            self.use_plotly = False
+        except:
+            self.use_plotly = True
     
-#     candlestick2_ohlc(graph_KAV, df['Open'], df['High'], df['Low'], df['Close'], width=0.3,
-#                         colorup='g', colordown='r')  
+    def show(self, df, stock_name):
+        if self.use_plotly:
+            return self.draw_candlestick(df,stock_name)
+        else:
+            return self.draw_candlestick_mpl(df,stock_name,self.candlestick_api)
 
-#     graph_KAV.grid(which='major', color='#CCCCCC', linestyle=':')
-#     graph_KAV.set_title(stock_name)
-#     graph_KAV.set_ylabel(u"Price")
-#     graph_KAV.set_xlim(-1, len(df.index)) 
-#     # draw bar chart for volume
-#     graph_VOL.bar(np.arange(0, len(df.index)), df.Volume, width=0.3, color=['r' if df.Open[x] > df.Close[x] else 'g' for x in range(0,len(df.index))])
-#     graph_VOL.set_ylabel(u"Volume")
-#     graph_VOL.set_xlim(-1,len(df.index)) 
-#     graph_VOL.set_xticklabels([''] + list(df['Date'].dt.date))
+    def draw_candlestick(self,df,stock_name):
+        layout = go.Layout(title_text=stock_name,title_font_size=18, autosize=False, margin=go.layout.Margin(l=10, r=1, b=10),
+                        xaxis=dict(title_text="Date", type='category',rangeslider= {'visible': False}),
+                        yaxis=dict(title_text="<b>Price</b>", domain = [0.3, 1]),
+                        yaxis2 = dict(title_text="<b>Volume</b>", anchor="x", domain = [0, 0.2]),
+                        width=500, height=600  )
+        
+        candle = go.Candlestick(x=df['Date'].dt.date,
+                        open=df['Open'], high=df['High'],
+                        low=df['Low'], close=df['Close'], increasing_line_color='#7bc0a3',
+                        decreasing_line_color='#f6416c', name="Price")
+        # Set volume bar color
+        df['diag'] = '#7bc0a3' 
+        df.loc[df['Close'] <= df['Open'] , 'diag'] = '#f6416c' 
 
-#     for label in graph_KAV.xaxis.get_ticklabels():
-#         label.set_visible(False)
-#     for label in graph_VOL.xaxis.get_ticklabels():
-#         label.set_rotation(45)
-#         label.set_fontsize(10)  
+        vol = go.Bar(x=df['Date'].dt.date, width=0.5,
+                    y=df['Volume'], name="Volume", marker_color=df['diag'], opacity=0.8, yaxis='y2')  
+        data = [candle, vol]
+        fig = go.Figure(data, layout)
+        fig.update(layout_showlegend=False)
+        fig.show()
 
-#     plt.show()
+    #from mplfinance.original_flavor import candlestick2_ohlc
+    def draw_candlestick_mpl(self,df,stock_name,candlestick2_ohlc_api):
+        fig = plt.figure(figsize=(7,6), facecolor="white") 
+        gs = gridspec.GridSpec(2, 1, left=0.08, bottom=0.15, right=0.99, top=0.96, wspace=0.2, hspace=0, height_ratios=[3.5,1])
+        graph_KAV = fig.add_subplot(gs[0,:])
+        graph_VOL = fig.add_subplot(gs[1,:])
+        # draw candle chart
+        
+        candlestick2_ohlc_api(graph_KAV, df['Open'], df['High'], df['Low'], df['Close'], width=0.3,
+                            colorup='g', colordown='r')  
+
+        graph_KAV.grid(which='major', color='#CCCCCC', linestyle=':')
+        graph_KAV.set_title(stock_name)
+        graph_KAV.set_ylabel(u"Price")
+        graph_KAV.set_xlim(-1, len(df.index)) 
+        # draw bar chart for volume
+        graph_VOL.bar(np.arange(0, len(df.index)), df.Volume, width=0.3, color=['r' if df.Open[x] > df.Close[x] else 'g' for x in range(0,len(df.index))])
+        graph_VOL.set_ylabel(u"Volume")
+        graph_VOL.set_xlim(-1,len(df.index)) 
+        graph_VOL.set_xticklabels([''] + list(df['Date'].dt.date))
+
+        for label in graph_KAV.xaxis.get_ticklabels():
+            label.set_visible(False)
+        for label in graph_VOL.xaxis.get_ticklabels():
+            label.set_rotation(45)
+            label.set_fontsize(10)  
+        plt.show()
 
 def pollonce(df_old = pd.DataFrame()):
     df_new = getnews()
@@ -183,7 +200,7 @@ def pollonce(df_old = pd.DataFrame()):
             #print(f'name:{name} , symbol:{symbol}')
             df_quotes = get_quotes(symbol)
             if len(df_quotes) > 0:
-               draw_candlestick(df_quotes,name)
+               CandleStickChart().show(df_quotes,name)
     return df_old.append(df_new, ignore_index=True)
 
 def pollnews(interval = 10):
@@ -204,7 +221,8 @@ def main(argv):
         print(f'name:{name} , symbol:{symbol}')
         df_quotes = get_quotes(symbol)
         if len(df_quotes) > 0:
-            draw_candlestick(df_quotes,name)
+            CandleStickChart().show(df_quotes,name)
+            #draw_candlestick(df_quotes,name)
     #pollnews()
 
 if __name__ == "__main__":
